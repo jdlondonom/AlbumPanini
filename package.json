@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "description": "Control sincronizado del álbum Panini 2026 con autenticación local y MFA.",
-  "main": "server.js",
+  "main": "lib/app.js",
   "scripts": {
     "setup": "node scripts/setup-local.js",
     "create-user": "node scripts/create-user.js",
     "migrate-legacy-users": "node scripts/migrate-legacy-users.js",
-    "start": "node server.js",
+    "start": "node lib/app.js",
     "test": "node --test"
   },
   "engines": {

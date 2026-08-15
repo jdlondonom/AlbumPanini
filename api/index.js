@@ -1,6 +1,6 @@
 "use strict";
 
-const { createApp } = require("../server");
+const { createApp } = require("../lib/app");
 
 function createHandler(applicationFactory = createApp) {
   let applicationPromise;
