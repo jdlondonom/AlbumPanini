@@ -5,6 +5,10 @@
     { "source": "/(.*)", "destination": "/api" }
   ],
   "functions": {
+    "index.js": {
+      "includeFiles": "{panini-mundial-2026.html,public/**}",
+      "maxDuration": 30
+    },
     "api/index.js": {
       "includeFiles": "{panini-mundial-2026.html,public/**}",
       "maxDuration": 30
