@@ -1,0 +1,11 @@
+node_modules/
+.gstack/
+.env.local
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+coverage/
+*.log
+.DS_Store
+Thumbs.db
