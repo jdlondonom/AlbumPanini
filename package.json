@@ -2,23 +2,27 @@
   "name": "album-panini-2026-secure",
   "version": "1.0.0",
   "private": true,
-  "description": "Control local del álbum Panini 2026 con autenticación y MFA.",
-  "main": "server.js",
+  "description": "Control sincronizado del álbum Panini 2026 con autenticación local y MFA.",
   "scripts": {
     "setup": "node scripts/setup-local.js",
     "create-user": "node scripts/create-user.js",
-    "start": "node server.js",
+    "migrate-legacy-users": "node scripts/migrate-legacy-users.js",
+    "start": "node lib/app.js",
     "test": "node --test"
   },
   "engines": {
-    "node": ">=22.5.0"
+    "node": "24.x"
   },
   "dependencies": {
+    "@vercel/functions": "^3.9.3",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.6.2",
     "helmet": "^8.3.0",
+    "pg": "^8.16.3",
     "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "pg-mem": "^3.0.5"
   }
 }

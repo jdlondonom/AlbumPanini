@@ -1,57 +1,113 @@
 # Mi Álbum Panini 2026
 
-Mini app local para controlar tres inventarios independientes:
+Aplicación para controlar tres inventarios por cuenta:
 
-- láminas asignadas al álbum;
+- láminas pegadas en el álbum;
 - colección adicional sin pegar;
 - repetidas disponibles.
 
-El acceso se realiza mediante un portal local con contraseña, MFA TOTP y sesiones protegidas.
+Incluye autenticación con contraseña, MFA TOTP, sesiones persistentes y sincronización del progreso entre dispositivos.
 
-## Requisitos
+## Arquitectura
 
-- Node.js 22.5 o posterior.
-- Una aplicación autenticadora compatible con TOTP, por ejemplo Google Authenticator, Microsoft Authenticator o 1Password.
+- Express sobre Node.js 24.
+- PostgreSQL para usuarios, sesiones, MFA, límites de acceso y progreso.
+- Copia local del progreso en el navegador para recuperación ante fallos de red.
+- Una Vercel Function recibe todas las rutas mediante `api/index.js`.
 
-## Instalación local
+SQLite no se utiliza en producción porque el sistema de archivos de Vercel Functions es efímero.
+
+## Despliegue en Vercel
+
+### 1. Crear la base de datos
+
+En el proyecto de Vercel abre **Storage → Marketplace** e instala una integración PostgreSQL, por ejemplo Neon. Conecta la base al proyecto y confirma que Vercel haya creado `DATABASE_URL`.
+
+Usa la URL de conexión con pooler que entregue el proveedor. Mantén la base y la Function en regiones cercanas.
+
+### 2. Configurar secretos
+
+Genera una clave de 32 bytes una sola vez:
+
+```powershell
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+```
+
+En **Project → Settings → Environment Variables** configura:
+
+- `AUTH_ENCRYPTION_KEY`: resultado del comando anterior;
+- `DATABASE_URL`: normalmente la instala automáticamente el proveedor PostgreSQL;
+- `DATABASE_POOL_MAX`: `5` es suficiente para esta aplicación.
+
+No cambies `AUTH_ENCRYPTION_KEY` después de configurar MFA: hacerlo impediría descifrar los secretos TOTP existentes. No guardes esta clave en GitHub.
+
+### 3. Desplegar
+
+Importa `https://github.com/jdlondonom/AlbumPanini` en Vercel. La configuración de `vercel.json` detectará la Function y dirigirá todas las rutas hacia Express.
+
+También puedes desplegar con la CLI:
+
+```powershell
+npx vercel --prod
+```
+
+### 4. Migrar o crear el usuario remoto
+
+La cuenta local anterior no se sube a GitHub. Después de conectar PostgreSQL, copia temporalmente en `.env.local` los mismos valores de `DATABASE_URL` y `AUTH_ENCRYPTION_KEY` configurados en Vercel.
+
+Para copiar la cuenta existente desde `data/auth.sqlite`, conservando su contraseña y configuración MFA, ejecuta:
 
 ```powershell
 npm install
-npm run setup
+npm run migrate-legacy-users
+```
+
+La migración no copia sesiones abiertas. Si no tienes la base anterior o quieres crear otra cuenta, ejecuta:
+
+```powershell
+npm install
 npm run create-user -- --username TU_USUARIO --email TU_CORREO
+```
+
+La contraseña se solicita de manera interactiva y no se muestra ni se guarda en el historial de la terminal. En el primer ingreso aparecerá el QR para activar MFA.
+
+## Ejecución local
+
+Copia `.env.example` como `.env.local`, configura una base PostgreSQL accesible y luego ejecuta:
+
+```powershell
+npm install
 npm start
 ```
 
-Abre [http://127.0.0.1:3010](http://127.0.0.1:3010). En el primer ingreso, después de validar la contraseña, la app mostrará un QR para activar MFA.
+Abre [http://127.0.0.1:3010](http://127.0.0.1:3010).
 
-La contraseña se solicita de forma interactiva y no se muestra en pantalla. La base de usuarios, la clave de cifrado, las sesiones y el secreto MFA permanecen en archivos locales excluidos por `.gitignore`.
+## Progreso anterior
 
-## Datos anteriores del álbum
+El progreso se almacena ahora en PostgreSQL y también como respaldo en `localStorage`.
 
-Al pasar de abrir el HTML directamente a usar `http://127.0.0.1:3010`, el navegador utiliza un origen de almacenamiento diferente. Para conservar el progreso:
+- Si ya usabas la versión protegida en `127.0.0.1:3010`, ejecútala una vez conectada a PostgreSQL: cuando la cuenta remota esté vacía, el progreso local se cargará automáticamente.
+- Si abrías directamente el archivo HTML, exporta primero el JSON desde esa versión y luego usa **Importar progreso** en la aplicación desplegada.
 
-1. Abre una última vez el HTML anterior y pulsa **Exportar progreso**.
-2. Inicia la aplicación protegida.
-3. Pulsa **Importar progreso** y selecciona el JSON exportado.
+Después de la primera sincronización, el inventario estará disponible al iniciar sesión desde otros dispositivos.
 
 ## Seguridad
 
-- Contraseñas derivadas con `scrypt` y una sal aleatoria por usuario.
-- MFA TOTP con protección contra reutilización del mismo código.
-- Secreto MFA cifrado mediante AES-256-GCM.
-- Cookies `HttpOnly` y `SameSite=Strict`, con `Secure` obligatorio en producción.
-- Rotación de sesión después de contraseña y MFA.
-- Tokens CSRF en todos los formularios que modifican estado.
-- Límite de intentos por dirección IP y bloqueo temporal de la cuenta.
-- Política CSP y encabezados de seguridad mediante Helmet.
-- Base SQLite y configuración local excluidas del repositorio.
-
-La aplicación escucha solamente en `127.0.0.1` por defecto. Para publicarla en una red o en Internet, usa un proxy HTTPS, cambia `NODE_ENV=production` y administra los secretos fuera del repositorio.
+- Contraseñas derivadas con `scrypt` y sal aleatoria.
+- MFA TOTP con secreto cifrado mediante AES-256-GCM.
+- Prevención atómica de reutilización del mismo código TOTP.
+- Cookies `HttpOnly`, `SameSite=Strict` y `Secure` en producción.
+- Rotación de sesión tras validar contraseña y MFA.
+- Protección CSRF para logout y sincronización del progreso.
+- Límites de intentos y bloqueo temporal almacenados en PostgreSQL.
+- CSP y encabezados de seguridad mediante Helmet.
+- Secretos y archivos locales excluidos por `.gitignore`.
 
 ## Pruebas
 
 ```powershell
 npm test
+npm audit --omit=dev
 ```
 
-Las pruebas validan el hash de contraseña, vectores TOTP, cifrado del secreto MFA y el flujo completo de login, alta MFA y acceso protegido.
+Las pruebas utilizan PostgreSQL en memoria y validan contraseña, TOTP, cifrado, login, alta MFA, sesiones, logout y sincronización del progreso.
