@@ -1,14 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
   "version": 2,
   "rewrites": [
     { "source": "/(.*)", "destination": "/api" }
   ],
   "functions": {
-    "index.js": {
-      "includeFiles": "{panini-mundial-2026.html,public/**}",
-      "maxDuration": 30
-    },
     "api/index.js": {
       "includeFiles": "{panini-mundial-2026.html,public/**}",
       "maxDuration": 30
