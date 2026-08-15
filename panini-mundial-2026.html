@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="__CSRF_TOKEN__">
+  <meta name="user-id" content="__AUTH_USER_ID__">
   <meta name="theme-color" content="#10233f">
   <title>Mi Álbum 2026 · Control de láminas</title>
   <style>
@@ -70,6 +72,8 @@
     .brand__tag { margin: 4px 0 0; color: #aebbd0; font-size: 12px; }
     .save-state { display: flex; align-items: center; gap: 8px; color: #c7d2e4; font-size: 13px; }
     .save-state::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+    .save-state--pending::before { background: #f4b740; }
+    .save-state--error::before { background: #ef6a6a; }
     .topbar__actions { display: flex; align-items: center; gap: 12px; }
     .auth-session { display: flex; align-items: center; gap: 8px; }
     .auth-session__user { color: #c7d2e4; font-size: 12px; font-weight: 750; }
@@ -521,7 +525,7 @@
         </div>
       </div>
       <div class="topbar__actions">
-        <div class="save-state"><span>Guardado en este dispositivo</span></div>
+        <div class="save-state save-state--pending" id="syncState" role="status"><span>Conectando…</span></div>
         <div class="auth-session">
           <span class="auth-session__user">__AUTH_USER__</span>
           <form action="/logout" method="post">
@@ -542,7 +546,7 @@
       <div class="hero__copy">
         <p class="eyebrow" id="heroEyebrow">Camino al álbum completo</p>
         <h1 id="pageTitle">Cada lámina cuenta.</h1>
-        <p class="hero__lead">Completa el álbum, reserva una segunda copia sin pegar y administra las repetidas que todavía tienes disponibles. Todo queda guardado automáticamente en este navegador.</p>
+        <p class="hero__lead">Completa el álbum, reserva una segunda copia sin pegar y administra las repetidas que todavía tienes disponibles. Tu progreso se sincroniza de forma segura con tu cuenta.</p>
       </div>
       <aside class="progress-card" aria-label="Progreso general">
         <div>
@@ -622,7 +626,7 @@
     </section>
 
     <section class="data-tools" aria-label="Respaldo de datos">
-      <p><strong>Datos portátiles.</strong> El respaldo incluye el álbum, la colección sin pegar y las repetidas disponibles. También puedes descargar informes sin enviar información fuera de este dispositivo.</p>
+      <p><strong>Datos portátiles.</strong> El respaldo incluye el álbum, la colección sin pegar y las repetidas disponibles. El progreso se sincroniza con tu cuenta y también conserva una copia local en este navegador.</p>
       <div class="data-tools__buttons">
         <button class="button button--primary" id="pdfButton" type="button">Faltantes álbum PDF</button>
         <button class="button" id="collectionPdfButton" type="button">Faltantes colección PDF</button>
@@ -635,7 +639,7 @@
     </section>
   </main>
 
-  <footer>Archivo local · Sin cuentas, servidores ni conexiones externas</footer>
+  <footer>Sesión protegida · MFA · Progreso sincronizado</footer>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script>
@@ -671,8 +675,13 @@
     ];
     CATALOGO_LAMINAS.push(...COCA_COLA_LAMINAS);
 
-    const STORAGE_KEY = "mi-album-mundial-2026:v1";
-    const LOCK_KEY = "mi-album-mundial-2026:locked";
+    const AUTH_USER_ID = document.querySelector('meta[name="user-id"]').content;
+    const LEGACY_STORAGE_KEY = "mi-album-mundial-2026:v1";
+    const LEGACY_LOCK_KEY = "mi-album-mundial-2026:locked";
+    const STORAGE_KEY = `${LEGACY_STORAGE_KEY}:user:${AUTH_USER_ID}`;
+    const LOCK_KEY = `${LEGACY_LOCK_KEY}:user:${AUTH_USER_ID}`;
+    const SYNC_PENDING_KEY = `mi-album-mundial-2026:sync-pending:user:${AUTH_USER_ID}`;
+    const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
     const VALID_STICKER_KEYS = new Set(CATALOGO_LAMINAS.map(stickerKey));
     const storedProgress = loadStoredProgress();
     const state = {
@@ -722,6 +731,7 @@
       statusReservableButton: document.querySelector("#statusReservableButton"),
       catalogTitle: document.querySelector("#catalogTitle"),
       overviewNote: document.querySelector("#overviewNote"),
+      syncState: document.querySelector("#syncState"),
       toast: document.querySelector("#toast"),
       importFile: document.querySelector("#importFile")
     };
@@ -785,18 +795,116 @@
 
     function loadStoredProgress() {
       try {
-        return normalizeProgress(JSON.parse(localStorage.getItem(STORAGE_KEY)));
+        let stored = localStorage.getItem(STORAGE_KEY);
+        if (stored === null) {
+          stored = localStorage.getItem(LEGACY_STORAGE_KEY);
+          if (stored !== null) {
+            localStorage.setItem(STORAGE_KEY, stored);
+            localStorage.removeItem(LEGACY_STORAGE_KEY);
+          }
+        }
+        return normalizeProgress(JSON.parse(stored));
       } catch (error) {
         return { owned: {}, collection: {}, duplicates: {}, version: 3 };
       }
     }
 
-    function saveProgress() {
+    let remoteSyncReady = false;
+    let remoteSaveQueue = Promise.resolve();
+    let saveGeneration = 0;
+    let syncWarningShown = false;
+    let syncRetryTimer;
+
+    function currentProgress() {
+      return { version: 3, owned: state.owned, collection: state.collection, duplicates: state.duplicates };
+    }
+
+    function hasProgress(progress) {
+      return Object.keys(progress.owned).length > 0
+        || Object.keys(progress.collection).length > 0
+        || Object.keys(progress.duplicates).length > 0;
+    }
+
+    function setSyncState(status, text) {
+      elements.syncState.classList.toggle("save-state--pending", status === "pending");
+      elements.syncState.classList.toggle("save-state--error", status === "error");
+      elements.syncState.querySelector("span").textContent = text;
+    }
+
+    function persistLocalProgress(progress, pending) {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 3, owned: state.owned, collection: state.collection, duplicates: state.duplicates }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+        localStorage.setItem(SYNC_PENDING_KEY, String(pending));
       } catch (error) {
         showToast("No se pudo guardar en este navegador");
       }
+    }
+
+    function queueRemoteSave(progress) {
+      const generation = ++saveGeneration;
+      setSyncState("pending", "Sincronizando…");
+      const operation = remoteSaveQueue.then(async () => {
+        const response = await fetch("/api/progress", {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: { "content-type": "application/json", "x-csrf-token": CSRF_TOKEN },
+          body: JSON.stringify(progress)
+        });
+        if (response.redirected && new URL(response.url).pathname === "/login") {
+          window.location.assign("/login");
+          throw new Error("La sesión terminó");
+        }
+        if (!response.ok) throw new Error("No se pudo sincronizar el progreso");
+        if (generation === saveGeneration) {
+          persistLocalProgress(progress, false);
+          setSyncState("saved", "Sincronizado");
+          syncWarningShown = false;
+        }
+      });
+      remoteSaveQueue = operation.catch(() => {});
+      operation.catch(() => {
+        setSyncState("error", "Pendiente de sincronizar");
+        if (!syncWarningShown) {
+          showToast("El progreso quedó guardado localmente y se sincronizará al recuperar la conexión");
+          syncWarningShown = true;
+        }
+      });
+      return operation;
+    }
+
+    function saveProgress() {
+      const progress = currentProgress();
+      persistLocalProgress(progress, true);
+      if (remoteSyncReady) queueRemoteSave(progress);
+    }
+
+    async function initializeProgressSync() {
+      try {
+        const response = await fetch("/api/progress", { credentials: "same-origin" });
+        if (!response.ok) throw new Error("No se pudo consultar el progreso");
+        const result = await response.json();
+        const remoteProgress = normalizeProgress(result.progress, true);
+        const localProgress = currentProgress();
+        const localPending = localStorage.getItem(SYNC_PENDING_KEY) === "true";
+        remoteSyncReady = true;
+        if (localPending || (result.updatedAt === null && hasProgress(localProgress))) {
+          await queueRemoteSave(localProgress);
+          showToast("Progreso local sincronizado con tu cuenta");
+        } else {
+          state.owned = remoteProgress.owned;
+          state.collection = remoteProgress.collection;
+          state.duplicates = remoteProgress.duplicates;
+          persistLocalProgress(currentProgress(), false);
+          setSyncState("saved", "Sincronizado");
+        }
+        clearTimeout(syncRetryTimer);
+      } catch (error) {
+        remoteSyncReady = true;
+        setSyncState("error", "Trabajando sin conexión");
+        clearTimeout(syncRetryTimer);
+        syncRetryTimer = setTimeout(initializeProgressSync, 15_000);
+      }
+      render();
     }
 
     function normalize(value) {
@@ -975,7 +1083,15 @@
 
     function loadLockState() {
       try {
-        return localStorage.getItem(LOCK_KEY) === "true";
+        let stored = localStorage.getItem(LOCK_KEY);
+        if (stored === null) {
+          stored = localStorage.getItem(LEGACY_LOCK_KEY);
+          if (stored !== null) {
+            localStorage.setItem(LOCK_KEY, stored);
+            localStorage.removeItem(LEGACY_LOCK_KEY);
+          }
+        }
+        return stored === "true";
       } catch (error) {
         return false;
       }
@@ -1523,8 +1639,8 @@
     });
 
     populateTeams();
-    saveProgress();
     render();
+    initializeProgressSync();
   </script>
 </body>
 </html>

@@ -69,19 +69,16 @@ async function main() {
   const confirmation = await hiddenQuestion("Confirma la contraseña: ");
   if (password !== confirmation) throw new Error("Las contraseñas no coinciden");
   const credentials = await hashPassword(password);
-  const databasePath = process.env.AUTH_DATABASE_PATH || path.resolve(__dirname, "..", "data", "auth.sqlite");
-  const db = initDatabase(databasePath);
-  const now = Date.now();
+  const db = await initDatabase(process.env.DATABASE_URL);
   try {
-    db.prepare("INSERT INTO users (username, email, password_hash, password_salt, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
-      .run(username, email, credentials.hash, credentials.salt, now, now);
+    await db.createUser({ username, email, passwordHash: credentials.hash, passwordSalt: credentials.salt });
   } catch (error) {
-    if (String(error.message).includes("UNIQUE")) throw new Error("El usuario o correo ya existe");
+    if (error.code === "23505" || String(error.message).includes("unique")) throw new Error("El usuario o correo ya existe");
     throw error;
   } finally {
-    db.close();
+    await db.close();
   }
-  console.log(`Cuenta local creada para ${username}. MFA se configurará en el primer ingreso.`);
+  console.log(`Cuenta creada para ${username}. MFA se configurará en el primer ingreso.`);
 }
 
 main().catch(error => {
