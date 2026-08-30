@@ -3,7 +3,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
-const { randomBytes } = require("node:crypto");
+const fs = require("node:fs");
+const path = require("node:path");
+const { createHash, randomBytes } = require("node:crypto");
 const { newDb } = require("pg-mem");
 const { createApp } = require("../lib/app");
 const { createHandler } = require("../api/index");
@@ -60,6 +62,15 @@ test("login, alta MFA y acceso protegido funcionan de extremo a extremo", async 
   assert.match(loginPage.headers.get("set-cookie"), /SameSite=Strict/i);
   assert.ok(loginCsrf);
 
+  const rejectedPassword = await fetch(`${baseUrl}/login`, {
+    method: "POST",
+    redirect: "manual",
+    headers: { "content-type": "application/x-www-form-urlencoded", cookie: anonymousCookie },
+    body: new URLSearchParams({ identity: "integration-user", password: "incorrect-password", csrf: loginCsrf })
+  });
+  assert.equal(rejectedPassword.status, 200);
+  assert.match(await rejectedPassword.text(), /Credenciales incorrectas/);
+
   const passwordStep = await fetch(`${baseUrl}/login`, {
     method: "POST",
     redirect: "manual",
@@ -97,7 +108,11 @@ test("login, alta MFA y acceso protegido funcionan de extremo a extremo", async 
   assert.match(appHtml, /integration-user/);
   assert.doesNotMatch(appHtml, /__CSRF_TOKEN__/);
   assert.doesNotMatch(appHtml, /__AUTH_USER_ID__/);
-  assert.match(appPage.headers.get("content-security-policy"), /script-src/);
+  const sourceHtml = fs.readFileSync(path.join(__dirname, "..", "panini-mundial-2026.html"), "utf8");
+  const sourceScript = sourceHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1] || "";
+  const normalizedScript = sourceScript.replace(/\r\n?/g, "\n");
+  const expectedScriptHash = createHash("sha256").update(normalizedScript).digest("base64");
+  assert.match(appPage.headers.get("content-security-policy"), new RegExp(`script-src[^;]*sha256-${expectedScriptHash}`));
   const logoutCsrf = csrfFrom(appHtml);
 
   const invalidProgress = await fetch(`${baseUrl}/api/progress`, {
@@ -107,7 +122,7 @@ test("login, alta MFA y acceso protegido funcionan de extremo a extremo", async 
   });
   assert.equal(invalidProgress.status, 400);
 
-  const progress = { version: 3, owned: { "Colombia::COL 1": true }, collection: {}, duplicates: { "Colombia::COL 2": 2 } };
+  const progress = { version: 5, owned: { "Colombia::COL 1": true }, collection: {}, duplicates: { "Colombia::COL 2": 2 }, adrenalyn: { "24": true }, adrenalynDuplicates: { "24": 3 } };
   const savedProgress = await fetch(`${baseUrl}/api/progress`, {
     method: "PUT",
     headers: {

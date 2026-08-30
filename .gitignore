@@ -1,6 +1,7 @@
 node_modules/
 .gstack/
 .env.local
+.env
 data/
 *.sqlite
 *.sqlite-shm

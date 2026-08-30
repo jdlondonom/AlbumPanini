@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - panini_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_POOL_MAX: 5
+      HOST: 0.0.0.0
+      PORT: 3010
+      NODE_ENV: development
+    ports:
+      - "127.0.0.1:3010:3010"
+    volumes:
+      - ./:/app
+      - panini_node_modules:/app/node_modules
+    command: ["node", "--watch", "lib/app.js"]
+
+volumes:
+  panini_postgres_data:
+  panini_node_modules:

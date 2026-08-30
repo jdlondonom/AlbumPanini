@@ -212,6 +212,7 @@
     .segments { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; background: #eef1f4; }
     .segments button { height: 36px; border: 0; border-radius: 9px; padding: 0 13px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 750; }
     .segments button[aria-pressed="true"] { background: var(--surface); color: var(--navy); box-shadow: 0 2px 8px rgba(16,35,63,.1); }
+    .adrenalyn-controls { grid-template-columns: minmax(210px, 1.2fr) repeat(3, minmax(155px, .7fr)) auto; }
 
     .team-picker { position: relative; }
     .team-picker__trigger {
@@ -267,6 +268,16 @@
     }
     .team-picker__option:hover, .team-picker__option[aria-selected="true"] { background: #eef7f4; }
     .team-picker__option-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #adrenalynCountryMenu .team-picker__option,
+    #adrenalynTeamMenu .team-picker__option,
+    #adrenalynTypeMenu .team-picker__option {
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 4px 8px;
+    }
+    #adrenalynCountryMenu .team-picker__option-name,
+    #adrenalynTeamMenu .team-picker__option-name,
+    #adrenalynTypeMenu .team-picker__option-name { grid-column: 1 / -1; }
 
     .view-tabs { display: flex; gap: 7px; margin: 26px 0 0; }
     .view-tabs button {
@@ -355,6 +366,10 @@
     .sticker--owned { border-color: #9ee5ce; background: #fbfffd; }
     body.goal-collection .sticker--owned { border-color: #b9d2ff; background: #fbfdff; }
     .sticker--duplicate { border-color: #f2c778; }
+    .adrenalyn-card { align-items: start; }
+    .adrenalyn-card__section { margin: 7px 0 0; color: var(--muted); font-size: 11px; font-weight: 750; }
+    .adrenalyn-card__badge { display: inline-block; margin-left: 6px; border-radius: 999px; background: #fff0b9; color: #705200; padding: 3px 6px; font-size: 10px; font-weight: 900; }
+    .adrenalyn-empty { grid-column: 1 / -1; }
     .sticker__number {
       min-width: 62px;
       height: 58px;
@@ -477,6 +492,7 @@
       .hero { grid-template-columns: 1fr; }
       .stats { grid-template-columns: repeat(4, 1fr); }
       .controls { grid-template-columns: 1fr 1fr; }
+      .adrenalyn-controls { grid-template-columns: 1fr 1fr; }
       .segments { grid-column: 1 / -1; width: 100%; }
       .segments button { flex: 1; }
       .sticker-list { grid-template-columns: 1fr; }
@@ -497,6 +513,7 @@
       .stat { padding: 14px 10px; text-align: center; }
       .stat__value { font-size: 22px; }
       .controls { position: static; grid-template-columns: 1fr; padding: 13px; }
+      .adrenalyn-controls { grid-template-columns: 1fr; }
       .segments { grid-column: auto; overflow-x: auto; }
       .section-head, .data-tools { align-items: stretch; flex-direction: column; }
       .bulk-actions { justify-content: flex-start; }
@@ -574,6 +591,7 @@
     <nav class="view-tabs" aria-label="Vistas del álbum" role="tablist">
       <button id="catalogTab" type="button" role="tab" aria-selected="true" aria-controls="catalogView">Láminas</button>
       <button id="overviewTab" type="button" role="tab" aria-selected="false" aria-controls="overviewView">Resumen por equipo</button>
+      <button id="adrenalynTab" type="button" role="tab" aria-selected="false" aria-controls="adrenalynView">Adrenalyn XL</button>
     </nav>
 
     <div id="catalogView" role="tabpanel" aria-labelledby="catalogTab">
@@ -625,8 +643,63 @@
       <div class="team-grid" id="teamGrid"></div>
     </section>
 
+    <section id="adrenalynView" role="tabpanel" aria-labelledby="adrenalynTab" hidden>
+      <section class="controls adrenalyn-controls" aria-label="Filtros del inventario Adrenalyn XL">
+        <div class="field">
+          <label for="adrenalynSearch">Buscar por número, jugador o selección</label>
+          <input id="adrenalynSearch" type="search" placeholder="Ej. 24, Messi, ARG…" autocomplete="off">
+        </div>
+        <div class="field">
+          <label id="adrenalynCountryLabel">País / selección</label>
+          <div class="team-picker" id="adrenalynCountryPicker">
+            <button class="team-picker__trigger" id="adrenalynCountryButton" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="adrenalynCountryLabel adrenalynCountryButton">
+              <span class="team-picker__selection" id="adrenalynCountrySelection"><span class="team-picker__name">Todos los países</span></span>
+            </button>
+            <div class="team-picker__menu" id="adrenalynCountryMenu" role="listbox" aria-labelledby="adrenalynCountryLabel" hidden></div>
+          </div>
+        </div>
+        <div class="field">
+          <label id="adrenalynTeamLabel">Equipo / código</label>
+          <div class="team-picker" id="adrenalynTeamPicker">
+            <button class="team-picker__trigger" id="adrenalynTeamButton" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="adrenalynTeamLabel adrenalynTeamButton">
+              <span class="team-picker__selection" id="adrenalynTeamSelection"><span class="team-picker__name">Todos los equipos</span></span>
+            </button>
+            <div class="team-picker__menu" id="adrenalynTeamMenu" role="listbox" aria-labelledby="adrenalynTeamLabel" hidden></div>
+          </div>
+        </div>
+        <div class="field">
+          <label id="adrenalynTypeLabel">Tipo de tarjeta</label>
+          <div class="team-picker" id="adrenalynTypePicker">
+            <button class="team-picker__trigger" id="adrenalynTypeButton" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="adrenalynTypeLabel adrenalynTypeButton">
+              <span class="team-picker__selection" id="adrenalynTypeSelection"><span class="team-picker__name">Todos los tipos</span></span>
+            </button>
+            <div class="team-picker__menu" id="adrenalynTypeMenu" role="listbox" aria-labelledby="adrenalynTypeLabel" hidden></div>
+          </div>
+        </div>
+        <div class="segments" id="adrenalynStatus" role="group" aria-label="Estado de las tarjetas Adrenalyn XL">
+          <button type="button" data-adrenalyn-status="all" aria-pressed="true">Todas</button>
+          <button type="button" data-adrenalyn-status="owned" aria-pressed="false">Las tengo</button>
+          <button type="button" data-adrenalyn-status="missing" aria-pressed="false">Me faltan</button>
+        </div>
+      </section>
+      <section aria-labelledby="adrenalynTitle">
+        <div class="section-head">
+          <div>
+            <h2 id="adrenalynTitle">Adrenalyn XL - inventario único</h2>
+          <p id="adrenalynSummary" aria-live="polite">Cargando catálogo…</p>
+          </div>
+          <div class="bulk-actions">
+            <button class="button button--primary" id="adrenalynMarkVisible" type="button">Marcar visibles como obtenidas</button>
+            <button class="button" id="adrenalynClearVisible" type="button">Marcar visibles como faltantes</button>
+            <button class="button" id="adrenalynExportMissing" type="button">Exportar faltantes CSV</button>
+          </div>
+        </div>
+        <div class="sticker-list" id="adrenalynList"></div>
+      </section>
+    </section>
+
     <section class="data-tools" aria-label="Respaldo de datos">
-      <p><strong>Datos portátiles.</strong> El respaldo incluye el álbum, la colección sin pegar y las repetidas disponibles. El progreso se sincroniza con tu cuenta y también conserva una copia local en este navegador.</p>
+      <p><strong>Datos portátiles.</strong> El respaldo incluye el álbum, la colección sin pegar, las repetidas disponibles y el inventario Adrenalyn XL. El progreso se sincroniza con tu cuenta y también conserva una copia local en este navegador.</p>
       <div class="data-tools__buttons">
         <button class="button button--primary" id="pdfButton" type="button">Faltantes álbum PDF</button>
         <button class="button" id="collectionPdfButton" type="button">Faltantes colección PDF</button>
@@ -688,6 +761,8 @@
       owned: storedProgress.owned,
       collection: storedProgress.collection,
       duplicates: storedProgress.duplicates,
+      adrenalyn: storedProgress.adrenalyn,
+      adrenalynDuplicates: storedProgress.adrenalynDuplicates,
       locked: loadLockState(),
       activeGoal: "album",
       status: "all",
@@ -779,17 +854,59 @@
       return normalized;
     }
 
+    function normalizeAdrenalynMap(value, strict = false) {
+      if (value === undefined) return {};
+      if (!isRecord(value)) {
+        if (strict) throw new Error("Inventario Adrenalyn XL inválido");
+        return {};
+      }
+      const normalized = {};
+      Object.entries(value).forEach(([key, flag]) => {
+        const number = Number(key);
+        const validNumber = Number.isInteger(number) && number >= 1 && number <= 630;
+        const validFlag = typeof flag === "boolean" || flag === 0 || flag === 1;
+        if (!validNumber || !validFlag) {
+          if (strict) throw new Error("Tarjeta Adrenalyn XL inválida");
+          return;
+        }
+        if (Boolean(flag)) normalized[String(number)] = true;
+      });
+      return normalized;
+    }
+
+    function normalizeAdrenalynDuplicateMap(value, strict = false) {
+      if (value === undefined) return {};
+      if (!isRecord(value)) {
+        if (strict) throw new Error("Repetidas Adrenalyn XL inválidas");
+        return {};
+      }
+      const normalized = {};
+      Object.entries(value).forEach(([key, count]) => {
+        const number = Number(key);
+        const numeric = Number(count);
+        const validNumber = Number.isInteger(number) && number >= 1 && number <= 630;
+        if (!validNumber || !Number.isInteger(numeric) || numeric < 0 || numeric > 99) {
+          if (strict) throw new Error("Cantidad de repetidas Adrenalyn XL inválida");
+          return;
+        }
+        if (numeric > 0) normalized[String(number)] = numeric;
+      });
+      return normalized;
+    }
+
     function normalizeProgress(value, strict = false) {
       if (!isRecord(value)) {
         if (strict) throw new Error("Formato inválido");
-        return { owned: {}, collection: {}, duplicates: {}, version: 3 };
+        return { owned: {}, collection: {}, duplicates: {}, adrenalyn: {}, adrenalynDuplicates: {}, version: 5 };
       }
       if (strict && !isRecord(value.owned)) throw new Error("El respaldo no incluye el álbum");
       return {
         version: Number(value.version) || 1,
         owned: normalizeFlagMap(value.owned, strict),
         collection: normalizeFlagMap(value.collection ?? value.collectionOwned, strict),
-        duplicates: normalizeDuplicateMap(value.duplicates, strict)
+        duplicates: normalizeDuplicateMap(value.duplicates, strict),
+        adrenalyn: normalizeAdrenalynMap(value.adrenalyn, strict),
+        adrenalynDuplicates: normalizeAdrenalynDuplicateMap(value.adrenalynDuplicates, strict)
       };
     }
 
@@ -805,7 +922,7 @@
         }
         return normalizeProgress(JSON.parse(stored));
       } catch (error) {
-        return { owned: {}, collection: {}, duplicates: {}, version: 3 };
+        return { owned: {}, collection: {}, duplicates: {}, adrenalyn: {}, adrenalynDuplicates: {}, version: 5 };
       }
     }
 
@@ -816,13 +933,15 @@
     let syncRetryTimer;
 
     function currentProgress() {
-      return { version: 3, owned: state.owned, collection: state.collection, duplicates: state.duplicates };
+      return { version: 5, owned: state.owned, collection: state.collection, duplicates: state.duplicates, adrenalyn: state.adrenalyn, adrenalynDuplicates: state.adrenalynDuplicates };
     }
 
     function hasProgress(progress) {
       return Object.keys(progress.owned).length > 0
         || Object.keys(progress.collection).length > 0
-        || Object.keys(progress.duplicates).length > 0;
+        || Object.keys(progress.duplicates).length > 0
+        || Object.keys(progress.adrenalyn).length > 0
+        || Object.keys(progress.adrenalynDuplicates).length > 0;
     }
 
     function setSyncState(status, text) {
@@ -894,6 +1013,8 @@
           state.owned = remoteProgress.owned;
           state.collection = remoteProgress.collection;
           state.duplicates = remoteProgress.duplicates;
+          state.adrenalyn = remoteProgress.adrenalyn;
+          state.adrenalynDuplicates = remoteProgress.adrenalynDuplicates;
           persistLocalProgress(currentProgress(), false);
           setSyncState("saved", "Sincronizado");
         }
@@ -1607,7 +1728,7 @@
     document.querySelector("#duplicatesExcelButton").addEventListener("click", downloadDuplicatesExcel);
 
     document.querySelector("#exportButton").addEventListener("click", () => {
-      const payload = JSON.stringify({ app: "Mi Álbum 2026", version: 3, exportedAt: new Date().toISOString(), owned: state.owned, collection: state.collection, duplicates: state.duplicates }, null, 2);
+      const payload = JSON.stringify({ app: "Mi Álbum 2026", version: 5, exportedAt: new Date().toISOString(), owned: state.owned, collection: state.collection, duplicates: state.duplicates, adrenalyn: state.adrenalyn, adrenalynDuplicates: state.adrenalynDuplicates }, null, 2);
       const blob = new Blob([payload], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -1628,9 +1749,11 @@
         state.owned = restored.owned;
         state.collection = restored.collection;
         state.duplicates = restored.duplicates;
+        state.adrenalyn = restored.adrenalyn;
+        state.adrenalynDuplicates = restored.adrenalynDuplicates;
         saveProgress();
         render();
-        showToast(restored.version >= 3 ? "Álbum, colección y repetidas restaurados" : "Respaldo anterior restaurado; la colección inicia vacía");
+        showToast(restored.version >= 5 ? "Álbum, colección y repetidas restaurados" : "Respaldo anterior restaurado; las repetidas Adrenalyn XL inician vacías");
       } catch (error) {
         showToast("El archivo no contiene un respaldo válido");
       } finally {
@@ -1641,6 +1764,8 @@
     populateTeams();
     render();
     initializeProgressSync();
+    window.adrenalynInventory = { state, saveProgress, showToast };
   </script>
+  <script src="/assets/adrenalyn.js?v=3"></script>
 </body>
 </html>
