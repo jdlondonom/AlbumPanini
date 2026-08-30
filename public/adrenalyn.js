@@ -281,7 +281,10 @@
     if (!Object.values(filterControls).some(control => control.picker.contains(event.target))) setPickerOpen("", false);
   });
 
-  fetch("/assets/adrenalyn-checklist.json", { credentials: "same-origin" })
+  fetch("/assets/adrenalyn-checklist.json?v=2", {
+    credentials: "same-origin",
+    cache: "no-store",
+  })
     .then(response => response.ok ? response.json() : Promise.reject(new Error("No se pudo cargar el catálogo")))
     .then(result => {
       if (!Array.isArray(result) || result.length !== 630 || result.some((card, index) => card.number !== index + 1)) throw new Error("Catálogo Adrenalyn XL inválido");
