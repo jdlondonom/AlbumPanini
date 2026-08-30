@@ -1,0 +1,22 @@
+{
+	admin off
+	auto_https disable_redirects
+	skip_install_trust
+	default_sni {$PANINI_MOBILE_IP}
+	servers {
+		protocols h1 h2
+	}
+	pki {
+		ca local {
+			name "Album Panini pruebas locales"
+			root_cn "Album Panini pruebas - CA local"
+			intermediate_cn "Album Panini pruebas - CA intermedia"
+		}
+	}
+}
+
+https://{$PANINI_MOBILE_IP} {
+	tls internal
+	encode gzip
+	reverse_proxy app:3010
+}

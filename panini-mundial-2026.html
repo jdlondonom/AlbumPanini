@@ -7,6 +7,7 @@
   <meta name="user-id" content="__AUTH_USER_ID__">
   <meta name="theme-color" content="#10233f">
   <title>Mi Álbum 2026 · Control de láminas</title>
+  <link rel="stylesheet" href="/assets/sticker-scanner.css?v=1">
   <style>
     :root {
       --navy: #10233f;
@@ -559,6 +560,12 @@
   </header>
 
   <main>
+    <aside id="syncConflict" class="sync-conflict" role="alert" hidden>
+      <strong>Hay cambios de otro dispositivo</strong>
+      <p>Tu copia local está protegida. Descárgala antes de cargar el inventario de tu cuenta; no sobrescribiremos los registros del otro dispositivo.</p>
+      <button id="syncBackup" class="button" type="button">Descargar copia local</button>
+      <button id="syncUseRemote" class="button" type="button">Usar inventario de mi cuenta</button>
+    </aside>
     <section class="hero" aria-labelledby="pageTitle">
       <div class="hero__copy">
         <p class="eyebrow" id="heroEyebrow">Camino al álbum completo</p>
@@ -597,6 +604,10 @@
     </nav>
 
     <div id="catalogView" role="tabpanel" aria-labelledby="catalogTab">
+    <section class="scanner-launch" aria-label="Escaneo de láminas">
+      <div><strong>De la cámara a tu álbum</strong><p>Escanea el código del reverso. Primera copia al álbum; las siguientes, a repetidas.</p></div>
+      <button class="button button--primary" id="openStickerScanner" type="button">Escanear láminas</button>
+    </section>
     <section class="controls" aria-label="Filtros del catálogo">
       <div class="field">
         <label for="searchInput">Buscar lámina o jugador</label>
@@ -717,6 +728,56 @@
   <footer>Sesión protegida · MFA · Progreso sincronizado</footer>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <dialog class="scan-dialog" id="stickerScanner" aria-labelledby="scannerTitle" aria-describedby="scannerIntro">
+    <div class="scan-dialog__body">
+      <header class="scan-dialog__header">
+        <div><p class="scan-dialog__eyebrow">Una lámina a la vez</p><h2 id="scannerTitle">Escanear láminas</h2></div>
+        <button class="scan-dialog__close" id="scannerClose" type="button" aria-label="Cerrar escáner">×</button>
+      </header>
+      <p class="scan-help" id="scannerIntro">Confirma siempre equipo y número. Nada se agrega antes de tu confirmación.</p>
+      <section id="scannerCapturePanel">
+        <div class="scan-camera">
+          <p class="scan-camera__placeholder" id="scannerCameraPlaceholder">Enciende la cámara y coloca el código del reverso dentro del recuadro.</p>
+          <video id="scannerVideo" playsinline muted autoplay hidden></video>
+          <div id="scannerGuide" class="scan-camera__guide" hidden aria-hidden="true"></div>
+        </div>
+        <div class="scan-actions">
+          <button class="button button--primary" id="scannerStartCamera" type="button">Abrir cámara trasera</button>
+          <button class="button button--primary" id="scannerCapture" type="button" hidden>Leer código</button>
+          <button class="button" id="scannerChoosePhoto" type="button">Usar una foto</button>
+          <button class="button" id="scannerManual" type="button">Escribir código</button>
+        </div>
+        <input id="scannerPhoto" type="file" accept="image/*" hidden>
+      </section>
+      <section id="scannerReviewPanel" hidden>
+        <img id="scannerPreview" class="scan-preview" alt="Código capturado para revisar" hidden>
+        <form id="scannerConfirmForm">
+          <div class="scan-field"><label for="scannerCode">Confirma o corrige equipo y número</label><input id="scannerCode" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="QAT 5" aria-describedby="scannerMatch scannerOutcome"></div>
+          <p id="scannerMatch" class="scan-match" aria-live="polite"></p>
+          <p id="scannerOutcome" class="scan-outcome" aria-live="polite"></p>
+          <div class="scan-actions">
+            <button class="button button--primary" id="scannerConfirm" type="submit" disabled>Confirmar y agregar</button>
+            <button class="button" id="scannerRetake" type="button">Repetir lectura</button>
+            <button class="button" id="scannerRefresh" type="button" hidden>Revisar conexión</button>
+          </div>
+        </form>
+      </section>
+      <section id="scannerSavedPanel" class="scan-success" hidden>
+        <div class="scan-success__icon" aria-hidden="true">✓</div>
+        <h3 id="scannerSavedTitle">Lámina registrada</h3>
+        <p id="scannerSavedDetail"></p>
+        <div class="scan-actions"><button class="button button--primary" id="scannerNext" type="button">Escanear siguiente lámina</button></div>
+      </section>
+      <section id="scannerRecoveryPanel" hidden>
+        <p class="scan-outcome">Hay una confirmación pendiente de comprobar.</p>
+        <p id="scannerRecoveryDetail" class="scan-help"></p>
+        <div class="scan-actions"><button class="button button--primary" id="scannerRecover" type="button">Comprobar registro pendiente</button></div>
+      </section>
+      <p id="scannerMessage" class="scan-message" role="status" aria-live="polite"></p>
+      <p class="scan-privacy">La imagen se procesa en este dispositivo y no se guarda ni se envía. Solo el código confirmado se registra en tu cuenta. Necesitas conexión para guardar.</p>
+    </div>
+  </dialog>
+  <script src="/assets/progress-sync.js?v=3"></script>
   <script>
     /*
       ================================================================
@@ -733,20 +794,20 @@
     // Se añade sin modificar los códigos de las 980 láminas ya existentes,
     // por lo que todo el progreso guardado anteriormente se conserva.
     const COCA_COLA_LAMINAS = [
-      { seleccion: "Coca-Cola", numero: "CC 1", jugador: "Lamine Yamal", posicion: "Delantero", equipo: "España" },
-      { seleccion: "Coca-Cola", numero: "CC 2", jugador: "Joshua Kimmich", posicion: "Mediocampista", equipo: "Alemania" },
-      { seleccion: "Coca-Cola", numero: "CC 3", jugador: "Harry Kane", posicion: "Delantero", equipo: "Inglaterra" },
-      { seleccion: "Coca-Cola", numero: "CC 4", jugador: "Santiago Giménez", posicion: "Delantero", equipo: "México" },
-      { seleccion: "Coca-Cola", numero: "CC 5", jugador: "Joško Gvardiol", posicion: "Defensa", equipo: "Croacia" },
-      { seleccion: "Coca-Cola", numero: "CC 6", jugador: "Federico Valverde", posicion: "Mediocampista", equipo: "Uruguay" },
-      { seleccion: "Coca-Cola", numero: "CC 7", jugador: "Jefferson Lerma", posicion: "Mediocampista", equipo: "Colombia" },
-      { seleccion: "Coca-Cola", numero: "CC 8", jugador: "Enner Valencia", posicion: "Delantero", equipo: "Ecuador" },
-      { seleccion: "Coca-Cola", numero: "CC 9", jugador: "Gabriel Magalhães", posicion: "Defensa", equipo: "Brasil" },
-      { seleccion: "Coca-Cola", numero: "CC 10", jugador: "Virgil van Dijk", posicion: "Defensa", equipo: "Países Bajos" },
-      { seleccion: "Coca-Cola", numero: "CC 11", jugador: "Alphonso Davies", posicion: "Defensa", equipo: "Canadá" },
-      { seleccion: "Coca-Cola", numero: "CC 12", jugador: "Emiliano Martínez", posicion: "Arquero", equipo: "Argentina" },
-      { seleccion: "Coca-Cola", numero: "CC 13", jugador: "Raúl Jiménez", posicion: "Delantero", equipo: "México" },
-      { seleccion: "Coca-Cola", numero: "CC 14", jugador: "Lautaro Martínez", posicion: "Delantero", equipo: "Argentina" }
+      { "seleccion": "Coca-Cola", "numero": "CC 1", "jugador": "Lamine Yamal", "posicion": "Delantero", "equipo": "España" },
+      { "seleccion": "Coca-Cola", "numero": "CC 2", "jugador": "Joshua Kimmich", "posicion": "Mediocampista", "equipo": "Alemania" },
+      { "seleccion": "Coca-Cola", "numero": "CC 3", "jugador": "Harry Kane", "posicion": "Delantero", "equipo": "Inglaterra" },
+      { "seleccion": "Coca-Cola", "numero": "CC 4", "jugador": "Santiago Giménez", "posicion": "Delantero", "equipo": "México" },
+      { "seleccion": "Coca-Cola", "numero": "CC 5", "jugador": "Joško Gvardiol", "posicion": "Defensa", "equipo": "Croacia" },
+      { "seleccion": "Coca-Cola", "numero": "CC 6", "jugador": "Federico Valverde", "posicion": "Mediocampista", "equipo": "Uruguay" },
+      { "seleccion": "Coca-Cola", "numero": "CC 7", "jugador": "Jefferson Lerma", "posicion": "Mediocampista", "equipo": "Colombia" },
+      { "seleccion": "Coca-Cola", "numero": "CC 8", "jugador": "Enner Valencia", "posicion": "Delantero", "equipo": "Ecuador" },
+      { "seleccion": "Coca-Cola", "numero": "CC 9", "jugador": "Gabriel Magalhães", "posicion": "Defensa", "equipo": "Brasil" },
+      { "seleccion": "Coca-Cola", "numero": "CC 10", "jugador": "Virgil van Dijk", "posicion": "Defensa", "equipo": "Países Bajos" },
+      { "seleccion": "Coca-Cola", "numero": "CC 11", "jugador": "Alphonso Davies", "posicion": "Defensa", "equipo": "Canadá" },
+      { "seleccion": "Coca-Cola", "numero": "CC 12", "jugador": "Emiliano Martínez", "posicion": "Arquero", "equipo": "Argentina" },
+      { "seleccion": "Coca-Cola", "numero": "CC 13", "jugador": "Raúl Jiménez", "posicion": "Delantero", "equipo": "México" },
+      { "seleccion": "Coca-Cola", "numero": "CC 14", "jugador": "Lautaro Martínez", "posicion": "Delantero", "equipo": "Argentina" }
     ];
     CATALOGO_LAMINAS.push(...COCA_COLA_LAMINAS);
 
@@ -930,22 +991,12 @@
       }
     }
 
-    let remoteSyncReady = false;
-    let remoteSaveQueue = Promise.resolve();
-    let saveGeneration = 0;
-    let syncWarningShown = false;
+    let progressSync;
+    let activeSyncConflict = null;
     let syncRetryTimer;
 
     function currentProgress() {
       return { version: 5, owned: state.owned, collection: state.collection, duplicates: state.duplicates, adrenalyn: state.adrenalyn, adrenalynDuplicates: state.adrenalynDuplicates };
-    }
-
-    function hasProgress(progress) {
-      return Object.keys(progress.owned).length > 0
-        || Object.keys(progress.collection).length > 0
-        || Object.keys(progress.duplicates).length > 0
-        || Object.keys(progress.adrenalyn).length > 0
-        || Object.keys(progress.adrenalynDuplicates).length > 0;
     }
 
     function setSyncState(status, text) {
@@ -954,83 +1005,69 @@
       elements.syncState.querySelector("span").textContent = text;
     }
 
-    function persistLocalProgress(progress, pending) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-        localStorage.setItem(SYNC_PENDING_KEY, String(pending));
-      } catch (error) {
-        showToast("No se pudo guardar en este navegador");
-      }
-    }
-
-    function queueRemoteSave(progress) {
-      const generation = ++saveGeneration;
-      setSyncState("pending", "Sincronizando…");
-      const operation = remoteSaveQueue.then(async () => {
-        const response = await fetch("/api/progress", {
-          method: "PUT",
-          credentials: "same-origin",
-          headers: { "content-type": "application/json", "x-csrf-token": CSRF_TOKEN },
-          body: JSON.stringify(progress)
-        });
-        if (response.redirected && new URL(response.url).pathname === "/login") {
-          window.location.assign("/login");
-          throw new Error("La sesión terminó");
-        }
-        if (!response.ok) throw new Error("No se pudo sincronizar el progreso");
-        if (generation === saveGeneration) {
-          persistLocalProgress(progress, false);
-          setSyncState("saved", "Sincronizado");
-          syncWarningShown = false;
-        }
-      });
-      remoteSaveQueue = operation.catch(() => {});
-      operation.catch(() => {
-        setSyncState("error", "Pendiente de sincronizar");
-        if (!syncWarningShown) {
-          showToast("El progreso quedó guardado localmente y se sincronizará al recuperar la conexión");
-          syncWarningShown = true;
-        }
-      });
-      return operation;
-    }
-
     function saveProgress() {
-      const progress = currentProgress();
-      persistLocalProgress(progress, true);
-      if (remoteSyncReady) queueRemoteSave(progress);
+      return progressSync.save(currentProgress());
     }
 
     async function initializeProgressSync() {
-      try {
-        const response = await fetch("/api/progress", { credentials: "same-origin" });
-        if (!response.ok) throw new Error("No se pudo consultar el progreso");
-        const result = await response.json();
-        const remoteProgress = normalizeProgress(result.progress, true);
-        const localProgress = currentProgress();
-        const localPending = localStorage.getItem(SYNC_PENDING_KEY) === "true";
-        remoteSyncReady = true;
-        if (localPending || (result.updatedAt === null && hasProgress(localProgress))) {
-          await queueRemoteSave(localProgress);
-          showToast("Progreso local sincronizado con tu cuenta");
-        } else {
-          state.owned = remoteProgress.owned;
-          state.collection = remoteProgress.collection;
-          state.duplicates = remoteProgress.duplicates;
-          state.adrenalyn = remoteProgress.adrenalyn;
-          state.adrenalynDuplicates = remoteProgress.adrenalynDuplicates;
-          persistLocalProgress(currentProgress(), false);
-          setSyncState("saved", "Sincronizado");
-        }
-        clearTimeout(syncRetryTimer);
-      } catch (error) {
-        remoteSyncReady = true;
-        setSyncState("error", "Trabajando sin conexión");
-        clearTimeout(syncRetryTimer);
+      clearTimeout(syncRetryTimer);
+      const result = await progressSync.initialize();
+      if (!result.saved && ["network", "protocol"].includes(result.reason)) {
         syncRetryTimer = setTimeout(initializeProgressSync, 15_000);
       }
-      render();
     }
+
+    progressSync = window.PaniniProgressSync.create({
+      fetch: window.fetch.bind(window), storage: localStorage,
+      storageKey: STORAGE_KEY, pendingKey: SYNC_PENDING_KEY,
+      metaKey: `${STORAGE_KEY}:sync-v2`, csrfToken: CSRF_TOKEN,
+      initialProgress: currentProgress(),
+      normalizeProgress: value => ({ ...normalizeProgress(value, true), version: 5 }),
+      onProgress: progress => {
+        for (const field of ["owned", "collection", "duplicates", "adrenalyn", "adrenalynDuplicates"]) state[field] = progress[field];
+        render();
+        window.dispatchEvent(new Event("panini:progress"));
+      },
+      onStatus: (status, text) => {
+        setSyncState(status, text);
+        if (status === "saved" && !progressSync?.conflicted) {
+          activeSyncConflict = null;
+          document.querySelector("#syncConflict").hidden = true;
+        }
+      },
+      onConflict: details => {
+        activeSyncConflict = details;
+        const banner = document.querySelector("#syncConflict");
+        const otherTab = details.reason === "other-tab-pending";
+        banner.querySelector("strong").textContent = otherTab ? "Otra pestaña tiene cambios pendientes" : "Hay cambios de otro dispositivo";
+        banner.querySelector("p").textContent = otherTab
+          ? "Sincroniza la otra pestaña antes de continuar. Tu copia local está protegida y puedes descargarla como respaldo."
+          : "Tu copia local está protegida. Descárgala antes de cargar el inventario de tu cuenta; no sobrescribiremos los registros del otro dispositivo.";
+        banner.hidden = false;
+      },
+      onAuthExpired: () => window.location.assign("/login")
+    });
+
+    document.querySelector("#syncBackup").addEventListener("click", () => {
+      const progress = activeSyncConflict?.localProgress || currentProgress();
+      const blob = new Blob([JSON.stringify({ ...progress, app: "Mi Álbum 2026", exportedAt: new Date().toISOString() }, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `mi-album-copia-local-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+    document.querySelector("#syncUseRemote").addEventListener("click", async event => {
+      event.target.disabled = true;
+      try {
+        await progressSync.adoptRemote();
+        showToast("Inventario de tu cuenta cargado. La copia local anterior se conservó como respaldo.");
+      } catch (error) { showToast(error.message); }
+      finally { event.target.disabled = false; }
+    });
+    window.addEventListener("online", initializeProgressSync);
+    window.addEventListener("focus", () => { if (progressSync.ready && !progressSync.conflicted) progressSync.refresh().catch(() => {}); });
 
     function normalize(value) {
       return String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -1310,6 +1347,8 @@
       elements.markVisibleOwned.disabled = state.locked;
       elements.markVisibleMissing.disabled = state.locked;
       elements.reserveVisible.disabled = state.locked;
+      document.querySelector("#openStickerScanner").disabled = state.locked;
+      window.dispatchEvent(new Event("panini:lock"));
     }
 
     function toggleLock() {
@@ -1773,7 +1812,10 @@
     render();
     initializeProgressSync();
     window.adrenalynInventory = { state, saveProgress, showToast, refreshDashboard: updateStats };
+    window.stickerInventory = { state, catalog: CATALOGO_LAMINAS, userId: AUTH_USER_ID, showToast, sync: progressSync };
   </script>
-  <script src="/assets/adrenalyn.js?v=5"></script>
+  <script src="/assets/adrenalyn.js?v=7"></script>
+  <script src="/assets/sticker-scanner-core.js?v=1"></script>
+  <script src="/assets/sticker-scanner.js?v=4"></script>
 </body>
 </html>

@@ -265,6 +265,8 @@
   }
 
   tab.addEventListener("click", openAdrenalyn);
+  window.addEventListener("panini:progress", render);
+  window.addEventListener("panini:lock", render);
   ["#catalogTab", "#overviewTab"].forEach(selector => document.querySelector(selector).addEventListener("click", () => { view.hidden = true; tab.setAttribute("aria-selected", "false"); }));
   search.addEventListener("input", render);
   document.querySelectorAll("[data-adrenalyn-status]").forEach(button => button.addEventListener("click", () => updateStatus(button.dataset.adrenalynStatus)));

@@ -82,6 +82,51 @@ npm start
 
 Abre [http://127.0.0.1:3010](http://127.0.0.1:3010).
 
+## Escáner de láminas
+
+En **Láminas → Escanear láminas**, abre la cámara trasera y encuadra el código
+del reverso, por ejemplo `QAT 5`. También puedes elegir una foto o escribir el
+código. El lector propone un resultado: **siempre debes confirmar o corregir
+equipo y número antes de registrar una unidad**.
+
+- Primera copia, sin existencias en ninguno de los tres inventarios: al álbum.
+- Si ya existe en álbum, colección sin pegar o repetidas: suma una repetida.
+- No mueve otras copias ni modifica el inventario Adrenalyn XL.
+- Cancelar no registra nada. Cada copia física adicional exige otra confirmación.
+- Solo admite referencias del catálogo de 994 láminas, incluido `00`, `FWC` y `CC`.
+- El límite existente de repetidas sigue siendo 99 por referencia.
+
+Las fotos se procesan localmente con Tesseract.js y no se guardan ni se envían
+al servidor. Los archivos del lector se generan al instalar dependencias mediante
+`postinstall`; no usa un CDN. Para regenerarlos ejecuta `npm run prepare:ocr`.
+La primera lectura descarga esos archivos desde la misma aplicación y puede tardar
+más. Para guardar se necesita conexión y la sesión autenticada.
+
+Si se pierde la respuesta al confirmar, usa **Comprobar registro pendiente**:
+reutiliza la misma confirmación para no sumar dos veces. No borres el almacenamiento
+del navegador mientras haya un registro pendiente. Los cambios simultáneos entre
+dispositivos se verifican con revisiones; ante un conflicto se conserva la copia
+local y se solicita revisarlo antes de guardar. No se sobrescribe silenciosamente
+el inventario de otro dispositivo.
+
+### Probar en Rancher Desktop y en el celular
+
+```powershell
+docker compose up --build -d
+docker compose exec -T app npm run prepare:ocr
+.\scripts\setup-mobile-https.ps1
+```
+
+El segundo comando prepara los archivos en la carpeta compartida de desarrollo;
+la imagen de Docker también los genera durante su construcción. Recarga las
+pestañas abiertas después de actualizar esta versión.
+
+El PC mantiene `http://127.0.0.1:3010/app`. El celular requiere la URL HTTPS de la
+IP del PC que muestra el script, la misma Wi-Fi y confianza manual en el certificado
+local. Las instrucciones de conexión, seguridad y cierre están en
+[Pruebas desde el celular](docs/mobile-scanner-testing.md). No se instala confianza
+en Windows ni se abren reglas de firewall automáticamente.
+
 ## Progreso anterior
 
 El progreso se almacena ahora en PostgreSQL y también como respaldo en `localStorage`.
@@ -110,4 +155,16 @@ npm test
 npm audit --omit=dev
 ```
 
-Las pruebas utilizan PostgreSQL en memoria y validan contraseña, TOTP, cifrado, login, alta MFA, sesiones, logout y sincronización del progreso.
+Las pruebas incluyen autenticación, catálogo, reglas de escaneo, cancelación,
+recuperación de red, conflictos entre pestañas y persistencia. La mayoría utiliza
+PostgreSQL en memoria. `test/progress-postgres.test.js` comprueba transacciones
+concurrentes y rollback en PostgreSQL real cuando se proporciona
+`SCANNER_TEST_DATABASE_URL`, exclusivamente para una base desechable llamada
+`panini_scanner_tests`. Nunca apuntes esa variable a la base de la aplicación.
+
+Para pruebas de navegador sin inventarios reales existe
+`scripts/serve-scanner-fixture.js`. Requiere `PANINI_SCANNER_FIXTURE=1`, usa una
+base efímera en memoria, no consulta `DATABASE_URL` y está bloqueado en producción.
+La cuenta sintética y el secreto TOTP de prueba están documentados dentro de ese
+archivo; no son credenciales de la app. Publica ese servidor solamente en loopback
+y detén el proceso al terminar.

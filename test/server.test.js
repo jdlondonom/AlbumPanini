@@ -112,12 +112,17 @@ test("login, alta MFA y acceso protegido funcionan de extremo a extremo", async 
   const sourceScript = sourceHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1] || "";
   const normalizedScript = sourceScript.replace(/\r\n?/g, "\n");
   const expectedScriptHash = createHash("sha256").update(normalizedScript).digest("base64");
-  assert.match(appPage.headers.get("content-security-policy"), new RegExp(`script-src[^;]*sha256-${expectedScriptHash}`));
+  const csp = appPage.headers.get("content-security-policy");
+  const scriptPolicy = csp.split(";").find(directive => directive.startsWith("script-src "));
+  assert.ok(scriptPolicy.includes(`'sha256-${expectedScriptHash}'`));
+  assert.ok(scriptPolicy.includes("'wasm-unsafe-eval'"));
+  assert.ok(!scriptPolicy.includes("'unsafe-eval'"));
+  assert.ok(csp.includes("worker-src 'self'"));
   const logoutCsrf = csrfFrom(appHtml);
 
   const invalidProgress = await fetch(`${baseUrl}/api/progress`, {
     method: "PUT",
-    headers: { "content-type": "application/json", "x-csrf-token": logoutCsrf, cookie: authenticatedCookie },
+    headers: { "content-type": "application/json", "x-csrf-token": logoutCsrf, "x-progress-revision": "0", cookie: authenticatedCookie },
     body: JSON.stringify({ version: 3, owned: { "Colombia::COL 1": false }, collection: {}, duplicates: {} })
   });
   assert.equal(invalidProgress.status, 400);
@@ -128,15 +133,19 @@ test("login, alta MFA y acceso protegido funcionan de extremo a extremo", async 
     headers: {
       "content-type": "application/json",
       "x-csrf-token": logoutCsrf,
+      "x-progress-revision": "0",
       cookie: authenticatedCookie
     },
     body: JSON.stringify(progress)
   });
   assert.equal(savedProgress.status, 200);
+  assert.equal((await savedProgress.json()).revision, 1);
 
   const loadedProgress = await fetch(`${baseUrl}/api/progress`, { headers: { cookie: authenticatedCookie } });
   assert.equal(loadedProgress.status, 200);
-  assert.deepEqual((await loadedProgress.json()).progress, progress);
+  const loaded = await loadedProgress.json();
+  assert.deepEqual(loaded.progress, progress);
+  assert.equal(loaded.revision, 1);
 
   const rejectedLogout = await fetch(`${baseUrl}/logout`, {
     method: "POST",

@@ -5,3 +5,5 @@ node_modules
 data
 coverage
 *.log
+.local-https
+public/vendor/ocr

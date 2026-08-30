@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { newDb } = require("pg-mem");
-const { PostgresDatabase } = require("../lib/database");
+const { PostgresDatabase, emptyProgress } = require("../lib/database");
 
 async function createDatabase(t) {
   const memory = newDb();
@@ -48,4 +48,15 @@ test("el límite de autenticación es compartido y reinicia por ventana", async 
   assert.equal((await database.consumeRateLimit("auth:127.0.0.1", 2, 60_000, now + 1)).allowed, true);
   assert.equal((await database.consumeRateLimit("auth:127.0.0.1", 2, 60_000, now + 2)).allowed, false);
   assert.equal((await database.consumeRateLimit("auth:127.0.0.1", 2, 60_000, now + 60_001)).allowed, true);
+});
+
+test("guardar progreso exige una revisión válida incluso fuera de la API", async t => {
+  const database = await createDatabase(t);
+  const user = await database.createUser({ username: "legacy", email: "legacy@example.test", passwordHash: "hash", passwordSalt: "salt" });
+  const progress = { ...emptyProgress(), owned: { "Catar::QAT 5": true }, adrenalynDuplicates: { "577": 2 } };
+  assert.equal((await database.saveProgress(user.id, progress, 0, 123)).revision, 1);
+  await assert.rejects(database.saveProgress(user.id, emptyProgress()), error => error.errorCode === "INVALID_REVISION");
+  await assert.rejects(database.saveProgress(user.id, emptyProgress(), 0), error => error.errorCode === "PROGRESS_CONFLICT");
+  assert.equal((await database.getProgress(user.id)).revision, 1);
+  assert.deepEqual((await database.getProgress(user.id)).payload, progress);
 });
