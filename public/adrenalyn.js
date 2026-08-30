@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const { state, saveProgress, showToast } = window.adrenalynInventory;
+  const { state, saveProgress, showToast, refreshDashboard } = window.adrenalynInventory;
 
   const sections = {
     golden: "Golden Ballers", team: "Selecciones", contenders: "Contenders", topKeepers: "Top Keepers",
@@ -128,6 +128,7 @@
         if (state.adrenalyn[key]) delete state.adrenalyn[key];
         else state.adrenalyn[key] = true;
         saveProgress();
+        refreshDashboard();
         render();
       });
       article.append(button);
@@ -151,6 +152,7 @@
     if (next) state.adrenalynDuplicates[key] = next;
     else delete state.adrenalynDuplicates[key];
     saveProgress();
+    refreshDashboard();
     render();
   }
 
@@ -242,6 +244,7 @@
       else delete state.adrenalyn[key];
     });
     saveProgress();
+    refreshDashboard();
     render();
     showToast(protectedCount ? `${protectedCount} tarjeta${protectedCount === 1 ? "" : "s"} con repetidas quedó protegida` : `${visible.length} tarjeta${visible.length === 1 ? "" : "s"} actualizada${visible.length === 1 ? "" : "s"}`);
   }

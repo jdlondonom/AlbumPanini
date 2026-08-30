@@ -178,7 +178,7 @@
     body.goal-collection .progress-track span { background: var(--blue); }
     body.goal-collection .progress-card__value small { color: #8eb9ff; }
 
-    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 18px 0 26px; }
+    .stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin: 18px 0 26px; }
     .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
     .stat__value { margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -.035em; }
     .stat__value--fraction { font-size: 22px; }
@@ -490,7 +490,7 @@
 
     @media (max-width: 820px) {
       .hero { grid-template-columns: 1fr; }
-      .stats { grid-template-columns: repeat(4, 1fr); }
+      .stats { grid-template-columns: repeat(3, 1fr); }
       .controls { grid-template-columns: 1fr 1fr; }
       .adrenalyn-controls { grid-template-columns: 1fr 1fr; }
       .segments { grid-column: 1 / -1; width: 100%; }
@@ -586,6 +586,8 @@
       <article class="stat"><p class="stat__value stat__value--fraction" id="statCollection">0 / 0</p><p class="stat__label">En la colección</p></article>
       <article class="stat"><p class="stat__value" id="statMissing">0</p><p class="stat__label" id="statMissingLabel">Faltan en el álbum</p></article>
       <article class="stat"><p class="stat__value" id="statDuplicates">0</p><p class="stat__label">Repetidas disponibles</p></article>
+      <article class="stat"><p class="stat__value stat__value--fraction" id="statAdrenalynOwned">0 / 630</p><p class="stat__label">Adrenalyn XL tengo</p></article>
+      <article class="stat"><p class="stat__value" id="statAdrenalynMissing">630</p><p class="stat__label">Faltan Adrenalyn XL</p></article>
     </section>
 
     <nav class="view-tabs" aria-label="Vistas del álbum" role="tablist">
@@ -800,6 +802,8 @@
       statMissing: document.querySelector("#statMissing"),
       statMissingLabel: document.querySelector("#statMissingLabel"),
       statDuplicates: document.querySelector("#statDuplicates"),
+      statAdrenalynOwned: document.querySelector("#statAdrenalynOwned"),
+      statAdrenalynMissing: document.querySelector("#statAdrenalynMissing"),
       statusSegments: document.querySelector("#statusSegments"),
       statusOwnedButton: document.querySelector("#statusOwnedButton"),
       statusMissingButton: document.querySelector("#statusMissingButton"),
@@ -1243,6 +1247,10 @@
       elements.statMissing.textContent = activeStats.missing;
       elements.statMissingLabel.textContent = state.activeGoal === "collection" ? "Faltan en la colección" : "Faltan en el álbum";
       elements.statDuplicates.textContent = activeStats.duplicates;
+      const adrenalynTotal = 630;
+      const adrenalynOwned = Object.keys(state.adrenalyn).length;
+      elements.statAdrenalynOwned.textContent = `${adrenalynOwned} / ${adrenalynTotal}`;
+      elements.statAdrenalynMissing.textContent = Math.max(0, adrenalynTotal - adrenalynOwned);
     }
 
     function countMarkup(section, name, showPercent = false) {
@@ -1764,8 +1772,8 @@
     populateTeams();
     render();
     initializeProgressSync();
-    window.adrenalynInventory = { state, saveProgress, showToast };
+    window.adrenalynInventory = { state, saveProgress, showToast, refreshDashboard: updateStats };
   </script>
-  <script src="/assets/adrenalyn.js?v=3"></script>
+  <script src="/assets/adrenalyn.js?v=4"></script>
 </body>
 </html>
