@@ -346,6 +346,8 @@
     }
     .button:hover { border-color: #adb5c1; }
     .button--primary { border-color: var(--green); background: var(--green); color: #06291f; }
+    .button--danger { border-color: #dc2626; background: #dc2626; color: white; }
+    .button--danger:hover { border-color: #b91c1c; background: #b91c1c; }
     .button:disabled, .toggle:disabled { cursor: not-allowed; opacity: .48; }
     body.is-locked .sticker:hover { transform: none; }
 
@@ -466,6 +468,16 @@
     .data-tools { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 20px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
     .data-tools p { max-width: 650px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
     .data-tools__buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
+    .data-reset-options { display: grid; gap: 10px; margin: 18px 0; padding: 0; border: 0; }
+    .data-reset-options legend { margin-bottom: 10px; font-size: 13px; font-weight: 850; }
+    .data-reset-option { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 11px; align-items: start; padding: 14px; border: 1px solid var(--line); border-radius: 13px; cursor: pointer; }
+    .data-reset-option:has(input:checked) { border-color: #dc2626; background: #fff5f5; box-shadow: 0 0 0 1px #dc2626; }
+    .data-reset-option input { margin-top: 3px; accent-color: #dc2626; }
+    .data-reset-option strong, .data-reset-option small { display: block; }
+    .data-reset-option strong { color: var(--navy); font-size: 14px; }
+    .data-reset-option small { margin-top: 4px; color: var(--muted); line-height: 1.45; }
+    .data-reset-impact { min-height: 48px; margin: 0; padding: 12px 14px; border-radius: 11px; background: #fff4e5; color: #754500; font-size: 13px; line-height: 1.55; }
+    .data-reset-warning { margin: 12px 0 0; color: #991b1b; font-size: 12px; font-weight: 750; }
     footer { padding: 20px 0 36px; color: var(--muted); font-size: 12px; text-align: center; }
     #importFile { display: none; }
 
@@ -720,6 +732,7 @@
         <button class="button" id="duplicatesExcelButton" type="button">Repetidas disponibles Excel</button>
         <button class="button" id="exportButton" type="button">Exportar progreso</button>
         <button class="button" id="importButton" type="button">Importar progreso</button>
+        <button class="button button--danger" id="dataResetButton" type="button">Limpiar datos</button>
         <input id="importFile" type="file" accept="application/json,.json">
       </div>
     </section>
@@ -727,6 +740,34 @@
 
   <footer>Sesión protegida · MFA · Progreso sincronizado</footer>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <dialog class="scan-dialog" id="dataResetDialog" aria-labelledby="dataResetTitle" aria-describedby="dataResetIntro">
+    <div class="scan-dialog__body">
+      <header class="scan-dialog__header">
+        <div><p class="scan-dialog__eyebrow">Limpieza selectiva</p><h2 id="dataResetTitle">Limpiar datos por módulo</h2></div>
+        <button class="scan-dialog__close" id="dataResetClose" type="button" aria-label="Cerrar limpieza de datos">×</button>
+      </header>
+      <p class="scan-help" id="dataResetIntro">Elige un inventario. Los datos del otro módulo se conservarán sin cambios.</p>
+      <fieldset class="data-reset-options">
+        <legend>¿Qué datos quieres limpiar?</legend>
+        <label class="data-reset-option">
+          <input type="radio" name="dataResetScope" value="album" checked>
+          <span><strong>Álbum y colección</strong><small>Elimina láminas pegadas, colección sin pegar y repetidas normales. Conserva Adrenalyn XL.</small></span>
+        </label>
+        <label class="data-reset-option">
+          <input type="radio" name="dataResetScope" value="adrenalyn">
+          <span><strong>Adrenalyn XL</strong><small>Elimina tarjetas obtenidas y repetidas Adrenalyn. Conserva álbum, colección y repetidas normales.</small></span>
+        </label>
+      </fieldset>
+      <p class="data-reset-impact" id="dataResetImpact" role="status" aria-live="polite"></p>
+      <p class="data-reset-warning">Esta acción no se puede deshacer. Puedes cancelar y exportar el progreso antes de continuar.</p>
+      <div class="scan-actions">
+        <button class="button" id="dataResetCancel" type="button">Cancelar</button>
+        <button class="button" id="dataResetExport" type="button">Exportar respaldo</button>
+        <button class="button button--danger" id="dataResetConfirm" type="button">Confirmar limpieza</button>
+      </div>
+    </div>
+  </dialog>
 
   <dialog class="scan-dialog" id="stickerScanner" aria-labelledby="scannerTitle" aria-describedby="scannerIntro">
     <div class="scan-dialog__body">
@@ -777,6 +818,7 @@
       <p class="scan-privacy">La imagen se procesa en este dispositivo y no se guarda ni se envía. Solo el código confirmado se registra en tu cuenta. Necesitas conexión para guardar.</p>
     </div>
   </dialog>
+  <script src="/assets/inventory-reset-core.js?v=1"></script>
   <script src="/assets/progress-sync.js?v=3"></script>
   <script>
     /*
@@ -873,7 +915,15 @@
       overviewNote: document.querySelector("#overviewNote"),
       syncState: document.querySelector("#syncState"),
       toast: document.querySelector("#toast"),
-      importFile: document.querySelector("#importFile")
+      importFile: document.querySelector("#importFile"),
+      dataResetButton: document.querySelector("#dataResetButton"),
+      dataResetDialog: document.querySelector("#dataResetDialog"),
+      dataResetClose: document.querySelector("#dataResetClose"),
+      dataResetCancel: document.querySelector("#dataResetCancel"),
+      dataResetExport: document.querySelector("#dataResetExport"),
+      dataResetConfirm: document.querySelector("#dataResetConfirm"),
+      dataResetImpact: document.querySelector("#dataResetImpact"),
+      dataResetRadios: [...document.querySelectorAll('[name="dataResetScope"]')]
     };
 
     function stickerKey(item) {
@@ -994,19 +1044,99 @@
     let progressSync;
     let activeSyncConflict = null;
     let syncRetryTimer;
+    let dataResetBusy = false;
 
     function currentProgress() {
       return { version: 5, owned: state.owned, collection: state.collection, duplicates: state.duplicates, adrenalyn: state.adrenalyn, adrenalynDuplicates: state.adrenalynDuplicates };
+    }
+
+    function applyProgressSnapshot(progress) {
+      for (const field of ["owned", "collection", "duplicates", "adrenalyn", "adrenalynDuplicates"]) state[field] = progress[field];
+    }
+
+    function updateDataResetAvailability() {
+      elements.dataResetButton.disabled = state.locked || dataResetBusy || !progressSync?.ready || progressSync.pending || progressSync.conflicted;
     }
 
     function setSyncState(status, text) {
       elements.syncState.classList.toggle("save-state--pending", status === "pending");
       elements.syncState.classList.toggle("save-state--error", status === "error");
       elements.syncState.querySelector("span").textContent = text;
+      updateDataResetAvailability();
     }
 
     function saveProgress() {
       return progressSync.save(currentProgress());
+    }
+
+    function selectedDataResetScope() {
+      return elements.dataResetRadios.find(radio => radio.checked)?.value || "album";
+    }
+
+    function updateDataResetImpact() {
+      const scope = selectedDataResetScope();
+      const count = window.PaniniInventoryReset.count(currentProgress(), scope);
+      const preserved = scope === "album" ? "Adrenalyn XL se conservará intacto." : "El álbum, la colección y sus repetidas se conservarán intactos.";
+      elements.dataResetImpact.textContent = count
+        ? `Se eliminarán ${count} registro${count === 1 ? "" : "s"} del módulo seleccionado. ${preserved}`
+        : `El módulo seleccionado ya está vacío. ${preserved}`;
+      elements.dataResetConfirm.disabled = dataResetBusy || count === 0;
+    }
+
+    function setDataResetBusy(busy) {
+      dataResetBusy = busy;
+      elements.dataResetRadios.forEach(radio => { radio.disabled = busy; });
+      elements.dataResetClose.disabled = busy;
+      elements.dataResetCancel.disabled = busy;
+      elements.dataResetExport.disabled = busy;
+      elements.dataResetConfirm.textContent = busy ? "Limpiando…" : "Confirmar limpieza";
+      updateDataResetImpact();
+      updateDataResetAvailability();
+    }
+
+    function openDataResetDialog() {
+      if (state.locked) return showToast("Desbloquea la edición antes de limpiar datos");
+      if (!progressSync.ready || progressSync.pending) return showToast("Espera a que el inventario termine de sincronizar");
+      if (progressSync.conflicted) return showToast("Resuelve el conflicto de sincronización antes de limpiar datos");
+      updateDataResetImpact();
+      elements.dataResetDialog.showModal();
+      elements.dataResetRadios.find(radio => radio.checked)?.focus();
+    }
+
+    function closeDataResetDialog() {
+      if (!dataResetBusy && elements.dataResetDialog.open) elements.dataResetDialog.close();
+    }
+
+    async function performDataReset() {
+      if (state.locked || dataResetBusy || !progressSync.ready || progressSync.pending || progressSync.conflicted) return;
+      const scope = selectedDataResetScope();
+      const before = normalizeProgress(currentProgress(), true);
+      const next = window.PaniniInventoryReset.reset(before, scope);
+      if (window.PaniniInventoryReset.count(before, scope) === 0) return updateDataResetImpact();
+
+      setDataResetBusy(true);
+      applyProgressSnapshot(next);
+      render();
+      window.dispatchEvent(new Event("panini:progress"));
+      const result = await saveProgress();
+      let message;
+
+      if (result.saved) {
+        message = scope === "album" ? "Datos de álbum y colección eliminados" : "Datos de Adrenalyn XL eliminados";
+      } else if (result.reason === "storage") {
+        applyProgressSnapshot(before);
+        render();
+        window.dispatchEvent(new Event("panini:progress"));
+        await progressSync.save(before);
+        message = "No se pudo respaldar la limpieza; el inventario no se modificó";
+      } else {
+        message = result.reason === "conflict"
+          ? "La limpieza no se confirmó en el servidor. Revisa el conflicto de sincronización."
+          : "La limpieza quedó pendiente de sincronizar";
+      }
+      setDataResetBusy(false);
+      closeDataResetDialog();
+      showToast(message);
     }
 
     async function initializeProgressSync() {
@@ -1348,6 +1478,7 @@
       elements.markVisibleMissing.disabled = state.locked;
       elements.reserveVisible.disabled = state.locked;
       document.querySelector("#openStickerScanner").disabled = state.locked;
+      updateDataResetAvailability();
       window.dispatchEvent(new Event("panini:lock"));
     }
 
@@ -1737,6 +1868,18 @@
       showToast("Informe de repetidas disponibles generado");
     }
 
+    function exportProgressBackup() {
+      const payload = JSON.stringify({ app: "Mi Álbum 2026", version: 5, exportedAt: new Date().toISOString(), owned: state.owned, collection: state.collection, duplicates: state.duplicates, adrenalyn: state.adrenalyn, adrenalynDuplicates: state.adrenalynDuplicates }, null, 2);
+      const blob = new Blob([payload], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `mi-album-2026-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast("Progreso exportado");
+    }
+
     document.querySelectorAll("[data-status]").forEach(button => {
       button.addEventListener("click", () => {
         setStatus(button.dataset.status);
@@ -1773,17 +1916,15 @@
     document.querySelector("#collectionPdfButton").addEventListener("click", () => downloadMissingPdf("collection"));
     document.querySelector("#duplicatesPdfButton").addEventListener("click", downloadDuplicatesPdf);
     document.querySelector("#duplicatesExcelButton").addEventListener("click", downloadDuplicatesExcel);
-
-    document.querySelector("#exportButton").addEventListener("click", () => {
-      const payload = JSON.stringify({ app: "Mi Álbum 2026", version: 5, exportedAt: new Date().toISOString(), owned: state.owned, collection: state.collection, duplicates: state.duplicates, adrenalyn: state.adrenalyn, adrenalynDuplicates: state.adrenalynDuplicates }, null, 2);
-      const blob = new Blob([payload], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `mi-album-2026-${new Date().toISOString().slice(0, 10)}.json`;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      showToast("Progreso exportado");
+    document.querySelector("#exportButton").addEventListener("click", exportProgressBackup);
+    elements.dataResetButton.addEventListener("click", openDataResetDialog);
+    elements.dataResetClose.addEventListener("click", closeDataResetDialog);
+    elements.dataResetCancel.addEventListener("click", closeDataResetDialog);
+    elements.dataResetExport.addEventListener("click", exportProgressBackup);
+    elements.dataResetConfirm.addEventListener("click", performDataReset);
+    elements.dataResetRadios.forEach(radio => radio.addEventListener("change", updateDataResetImpact));
+    elements.dataResetDialog.addEventListener("cancel", event => {
+      if (dataResetBusy) event.preventDefault();
     });
 
     document.querySelector("#importButton").addEventListener("click", () => elements.importFile.click());
