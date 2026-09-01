@@ -418,33 +418,48 @@
     }
     .reserve-button:hover:not(:disabled) { border-color: var(--blue); background: #dbeafe; }
     .reserve-button:disabled { cursor: not-allowed; opacity: .45; }
-    .duplicate-control {
-      display: inline-grid;
-      grid-template-columns: 27px auto 27px;
+    .sticker__actions {
+      position: relative;
+      display: grid;
+      grid-template-columns: 36px 48px;
       align-items: center;
-      gap: 3px;
-      margin-top: 7px;
+      justify-self: end;
+      gap: 8px;
+    }
+    .sticker__duplicate-label {
+      position: absolute;
+      right: 0;
+      top: -23px;
+      width: max-content;
+      max-width: 92px;
       border: 1px solid #edcf98;
       border-radius: 999px;
       background: #fff8e9;
-      padding: 2px;
+      color: #81520a;
+      padding: 3px 7px;
+      font-size: 10px;
+      font-weight: 850;
+      line-height: 1.2;
+      white-space: nowrap;
     }
-    .duplicate-control__button {
-      width: 27px;
-      height: 27px;
+    .sticker-action--subtract {
+      width: 36px;
+      height: 36px;
       display: grid;
       place-items: center;
-      border: 0;
+      border: 1px solid #edcf98;
       border-radius: 50%;
-      background: white;
-      color: var(--navy);
-      font-size: 16px;
+      background: #fff8e9;
+      color: #81520a;
+      font-size: 19px;
       font-weight: 900;
+      transition: background .15s ease, border-color .15s ease, opacity .15s ease;
     }
-    .duplicate-control__button:hover:not(:disabled) { background: #ffe8bb; }
-    .duplicate-control__button:disabled { cursor: not-allowed; opacity: .38; }
-    .duplicate-control__value { min-width: 66px; color: #81520a; font-size: 11px; font-weight: 850; text-align: center; white-space: nowrap; }
+    .sticker-action--subtract:hover:not(:disabled) { border-color: #dcae58; background: #ffe8bb; }
+    .sticker-action--subtract:disabled { cursor: not-allowed; opacity: .42; }
+    .sticker-action--subtract.is-placeholder { visibility: hidden; pointer-events: none; }
     .toggle {
+      position: relative;
       width: 48px;
       height: 48px;
       display: grid;
@@ -458,9 +473,20 @@
       transition: background .15s ease, color .15s ease, border-color .15s ease;
     }
     .toggle:hover { border-color: var(--green); }
-    .toggle[aria-pressed="true"] { border-color: var(--green); background: var(--green); color: #06291f; }
+    .toggle[data-owned="true"] { border-color: var(--green); background: var(--green); color: #06291f; }
+    .toggle__owned-mark {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--surface);
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 950;
+      line-height: 1;
+    }
+    .toggle__owned-mark { top: -5px; left: -5px; width: 18px; height: 18px; background: #06291f; color: white; }
     body.goal-collection .toggle:hover { border-color: var(--blue); }
-    body.goal-collection .toggle[aria-pressed="true"] { border-color: var(--blue); background: var(--blue); color: white; }
+    body.goal-collection .toggle[data-owned="true"] { border-color: var(--blue); background: var(--blue); color: white; }
 
     .empty { grid-column: 1 / -1; border: 1px dashed #bfc6d0; border-radius: var(--radius); padding: 48px 24px; text-align: center; color: var(--muted); }
     .empty strong { display: block; margin-bottom: 6px; color: var(--ink); font-size: 17px; }
@@ -535,9 +561,8 @@
       .team-grid { grid-template-columns: 1fr; }
       .sticker { grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; padding: 12px; }
       .sticker__number { min-width: 54px; height: 54px; }
+      .sticker__actions { grid-template-columns: 36px 44px; gap: 6px; }
       .toggle { width: 44px; height: 44px; }
-      .duplicate-control { grid-template-columns: 36px auto 36px; }
-      .duplicate-control__button { width: 36px; height: 36px; }
     }
     @media (prefers-reduced-motion: reduce) {
       * { scroll-behavior: auto !important; transition: none !important; }
@@ -819,6 +844,7 @@
     </div>
   </dialog>
   <script src="/assets/inventory-reset-core.js?v=1"></script>
+  <script src="/assets/sticker-inventory-actions.js?v=1"></script>
   <script src="/assets/progress-sync.js?v=3"></script>
   <script>
     /*
@@ -1259,34 +1285,6 @@
       collectionChip.textContent = collectionOwned ? "Colección ✓" : "Colección —";
       meta.append(albumChip, collectionChip);
 
-      if (albumOwned || collectionOwned || duplicateCount > 0) {
-        const duplicateControl = document.createElement("div");
-        duplicateControl.className = "duplicate-control";
-        duplicateControl.setAttribute("role", "group");
-        duplicateControl.setAttribute("aria-label", `Repetidas disponibles de ${item.numero}, ${item.jugador}`);
-        const minus = document.createElement("button");
-        minus.type = "button";
-        minus.className = "duplicate-control__button";
-        minus.textContent = "−";
-        minus.title = "Quitar una repetida disponible";
-        minus.setAttribute("aria-label", "Quitar una repetida disponible");
-        minus.disabled = state.locked || duplicateCount === 0;
-        minus.addEventListener("click", () => changeDuplicateCount(item, -1));
-        const value = document.createElement("output");
-        value.className = "duplicate-control__value";
-        value.textContent = `${duplicateCount} repetida${duplicateCount === 1 ? " disponible" : "s disponibles"}`;
-        const plus = document.createElement("button");
-        plus.type = "button";
-        plus.className = "duplicate-control__button";
-        plus.textContent = "+";
-        plus.title = "Agregar una repetida disponible";
-        plus.setAttribute("aria-label", "Agregar una repetida disponible");
-        plus.disabled = state.locked || duplicateCount >= 99;
-        plus.addEventListener("click", () => changeDuplicateCount(item, 1));
-        duplicateControl.append(minus, value, plus);
-        meta.append(duplicateControl);
-      }
-
       if (state.activeGoal === "collection" && !collectionOwned && duplicateCount > 0) {
         const reserve = document.createElement("button");
         reserve.type = "button";
@@ -1299,44 +1297,84 @@
       }
       info.append(team, player, meta);
 
+      const goalDestination = state.activeGoal === "collection" ? "a la colección" : "al álbum";
+      const goalOrigin = state.activeGoal === "collection" ? "de la colección" : "del álbum";
+      const actions = document.createElement("div");
+      actions.className = "sticker__actions";
+      actions.setAttribute("role", "group");
+      actions.setAttribute("aria-label", `Inventario de ${item.numero}, ${item.jugador}. Álbum: ${albumOwned ? "sí" : "no"}; colección: ${collectionOwned ? "sí" : "no"}; repetidas disponibles: ${duplicateCount}`);
+
+      if (duplicateCount > 0) {
+        const duplicateLabel = document.createElement("span");
+        duplicateLabel.className = "sticker__duplicate-label";
+        duplicateLabel.textContent = `Repetidas: ${duplicateCount}`;
+        actions.append(duplicateLabel);
+      }
+
+      const subtract = document.createElement("button");
+      subtract.className = "sticker-action--subtract";
+      subtract.type = "button";
+      subtract.textContent = "−";
+      const canSubtract = owned || duplicateCount > 0;
+      subtract.disabled = state.locked || !canSubtract;
+      subtract.classList.toggle("is-placeholder", !canSubtract);
+      subtract.tabIndex = canSubtract ? 0 : -1;
+      subtract.setAttribute("aria-hidden", String(!canSubtract));
+      subtract.setAttribute("aria-label", duplicateCount > 0
+        ? `Quitar una repetida disponible de ${item.numero}, ${item.jugador}`
+        : `Quitar ${goalOrigin}: ${item.numero}, ${item.jugador}`);
+      subtract.title = state.locked
+        ? "Edición bloqueada"
+        : (duplicateCount > 0 ? "Quitar una repetida disponible" : `Quitar ${goalOrigin}`);
+      subtract.addEventListener("click", () => performStickerInventoryAction(item, "subtract"));
+
       const toggle = document.createElement("button");
       toggle.className = "toggle";
       toggle.type = "button";
-      toggle.disabled = state.locked;
-      toggle.setAttribute("aria-pressed", String(owned));
-      const goalName = state.activeGoal === "collection" ? "la colección" : "el álbum";
-      toggle.setAttribute("aria-label", `${owned ? "Quitar de" : "Agregar a"} ${goalName}: ${item.numero}, ${item.jugador}`);
-      toggle.title = state.locked ? "Edición bloqueada" : (owned ? `Registrada en ${goalName} · Pulsa para cambiar` : `Falta en ${goalName} · Pulsa para cambiar`);
-      toggle.textContent = owned ? "✓" : "+";
-      toggle.addEventListener("click", () => {
-        if (state.activeGoal === "album" && owned && duplicateCount > 0) {
-          showToast("Primero deja el contador de repetidas en cero");
-          return;
-        }
-        const goalMap = getGoalMap();
-        if (owned) delete goalMap[key];
-        else goalMap[key] = true;
-        saveProgress();
-        render();
-      });
+      toggle.dataset.owned = String(owned);
+      toggle.disabled = state.locked || (owned && duplicateCount >= StickerInventoryActions.MAX_DUPLICATES);
+      toggle.setAttribute("aria-label", owned
+        ? `Agregar una repetida disponible de ${item.numero}, ${item.jugador}. Hay ${duplicateCount}`
+        : `Agregar ${goalDestination}: ${item.numero}, ${item.jugador}`);
+      toggle.title = state.locked
+        ? "Edición bloqueada"
+        : (owned
+          ? (duplicateCount >= StickerInventoryActions.MAX_DUPLICATES ? "Límite de 99 repetidas alcanzado" : "Agregar una repetida disponible")
+          : `Agregar ${goalDestination}`);
+      toggle.append(document.createTextNode("+"));
+      if (owned) {
+        const ownedMark = document.createElement("span");
+        ownedMark.className = "toggle__owned-mark";
+        ownedMark.setAttribute("aria-hidden", "true");
+        ownedMark.textContent = "✓";
+        toggle.append(ownedMark);
+      }
+      toggle.addEventListener("click", () => performStickerInventoryAction(item, "primary"));
 
-      article.append(number, info, toggle);
+      actions.append(subtract, toggle);
+      article.append(number, info, actions);
       return article;
     }
 
-    function changeDuplicateCount(item, delta) {
+    function performStickerInventoryAction(item, intent) {
       if (state.locked) {
-        showToast("Desbloquea la edición para cambiar repetidas");
+        showToast("Desbloquea la edición para cambiar el inventario");
         return;
       }
       const key = stickerKey(item);
-      const current = Math.max(0, Number(state.duplicates[key]) || 0);
-      if (!state.owned[key] && !state.collection[key] && current === 0) {
-        showToast("Registra primero la lámina en el álbum o en la colección");
+      const goalMap = getGoalMap();
+      const result = StickerInventoryActions.transition({
+        owned: Boolean(goalMap[key]),
+        duplicates: state.duplicates[key]
+      }, intent);
+      if (!result.changed) {
+        if (result.action === "limit") showToast("Llegaste al límite de 99 repetidas");
         return;
       }
-      const next = Math.min(99, Math.max(0, current + delta));
-      if (next) state.duplicates[key] = next;
+
+      if (result.owned) goalMap[key] = true;
+      else delete goalMap[key];
+      if (result.duplicates) state.duplicates[key] = result.duplicates;
       else delete state.duplicates[key];
       saveProgress();
       render();
