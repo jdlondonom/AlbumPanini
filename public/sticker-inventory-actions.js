@@ -41,5 +41,10 @@
     throw new TypeError(`Acción de inventario inválida: ${intent}`);
   }
 
-  return { MAX_DUPLICATES, normalizeSnapshot, transition };
+  function totalCopies(snapshot = {}) {
+    const duplicates = normalizeSnapshot({ duplicates: snapshot.duplicates }).duplicates;
+    return Number(Boolean(snapshot.albumOwned)) + Number(Boolean(snapshot.collectionOwned)) + duplicates;
+  }
+
+  return { MAX_DUPLICATES, normalizeSnapshot, totalCopies, transition };
 });

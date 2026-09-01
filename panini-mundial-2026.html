@@ -426,22 +426,20 @@
       justify-self: end;
       gap: 8px;
     }
-    .sticker__duplicate-label {
+    .sticker__inventory-label {
       position: absolute;
       right: 0;
-      top: -23px;
       width: max-content;
       max-width: 92px;
-      border: 1px solid #edcf98;
       border-radius: 999px;
-      background: #fff8e9;
-      color: #81520a;
       padding: 3px 7px;
       font-size: 10px;
       font-weight: 850;
       line-height: 1.2;
       white-space: nowrap;
     }
+    .sticker__available-label { top: -23px; border: 1px solid #edcf98; background: #fff8e9; color: #81520a; }
+    .sticker__total-label { bottom: -23px; border: 1px solid #bfd0e3; background: #eef4fa; color: var(--navy); }
     .sticker-action--subtract {
       width: 36px;
       height: 36px;
@@ -1299,16 +1297,23 @@
 
       const goalDestination = state.activeGoal === "collection" ? "a la colección" : "al álbum";
       const goalOrigin = state.activeGoal === "collection" ? "de la colección" : "del álbum";
+      const totalCopies = StickerInventoryActions.totalCopies({ albumOwned, collectionOwned, duplicates: duplicateCount });
       const actions = document.createElement("div");
       actions.className = "sticker__actions";
       actions.setAttribute("role", "group");
-      actions.setAttribute("aria-label", `Inventario de ${item.numero}, ${item.jugador}. Álbum: ${albumOwned ? "sí" : "no"}; colección: ${collectionOwned ? "sí" : "no"}; repetidas disponibles: ${duplicateCount}`);
+      actions.setAttribute("aria-label", `Inventario de ${item.numero}, ${item.jugador}. Álbum: ${albumOwned ? "sí" : "no"}; colección: ${collectionOwned ? "sí" : "no"}; disponibles: ${duplicateCount}; copias totales: ${totalCopies}`);
 
       if (duplicateCount > 0) {
-        const duplicateLabel = document.createElement("span");
-        duplicateLabel.className = "sticker__duplicate-label";
-        duplicateLabel.textContent = `Repetidas: ${duplicateCount}`;
-        actions.append(duplicateLabel);
+        const availableLabel = document.createElement("span");
+        availableLabel.className = "sticker__inventory-label sticker__available-label";
+        availableLabel.textContent = `Disponibles: ${duplicateCount}`;
+        actions.append(availableLabel);
+      }
+      if (totalCopies > 0) {
+        const totalLabel = document.createElement("span");
+        totalLabel.className = "sticker__inventory-label sticker__total-label";
+        totalLabel.textContent = `Total: ${totalCopies}`;
+        actions.append(totalLabel);
       }
 
       const subtract = document.createElement("button");

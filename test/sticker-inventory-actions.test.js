@@ -37,14 +37,25 @@ test("los límites normalizan el contador y bloquean la repetida número 100", (
   assert.throws(() => actions.transition({}, "otro"), /inválida/);
 });
 
+test("reservar una repetida cambia su ubicación pero conserva el total de copias", () => {
+  const before = { albumOwned: true, collectionOwned: false, duplicates: 3 };
+  const afterReservation = { albumOwned: true, collectionOwned: true, duplicates: 2 };
+  assert.equal(actions.totalCopies(before), 4);
+  assert.equal(actions.totalCopies(afterReservation), 4);
+  assert.equal(actions.totalCopies({ albumOwned: true, collectionOwned: true, duplicates: 3 }), 5);
+  assert.equal(actions.totalCopies({}), 0);
+});
+
 test("la interfaz usa el control fijo y carga su lógica antes de crear las láminas", () => {
   const html = fs.readFileSync(path.join(__dirname, "..", "panini-mundial-2026.html"), "utf8");
   assert.ok(html.indexOf("/assets/sticker-inventory-actions.js") < html.indexOf("function createSticker"));
   assert.match(html, /className = "sticker__actions"/);
   assert.match(html, /performStickerInventoryAction\(item, "primary"\)/);
   assert.match(html, /performStickerInventoryAction\(item, "subtract"\)/);
-  assert.match(html, /className = "sticker__duplicate-label"/);
-  assert.match(html, /`Repetidas: \$\{duplicateCount\}`/);
+  assert.match(html, /className = "sticker__inventory-label sticker__available-label"/);
+  assert.match(html, /`Disponibles: \$\{duplicateCount\}`/);
+  assert.match(html, /className = "sticker__inventory-label sticker__total-label"/);
+  assert.match(html, /`Total: \$\{totalCopies\}`/);
   assert.doesNotMatch(html, /toggle__count/);
   assert.doesNotMatch(html, /className = "duplicate-control"/);
 });
