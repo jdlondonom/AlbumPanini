@@ -842,7 +842,7 @@
     </div>
   </dialog>
   <script src="/assets/inventory-reset-core.js?v=1"></script>
-  <script src="/assets/sticker-inventory-actions.js?v=1"></script>
+  <script src="/assets/sticker-inventory-actions.js?v=2"></script>
   <script src="/assets/progress-sync.js?v=3"></script>
   <script>
     /*
@@ -1297,7 +1297,9 @@
 
       const goalDestination = state.activeGoal === "collection" ? "a la colección" : "al álbum";
       const goalOrigin = state.activeGoal === "collection" ? "de la colección" : "del álbum";
-      const totalCopies = StickerInventoryActions.totalCopies({ albumOwned, collectionOwned, duplicates: duplicateCount });
+      const totalCopies = typeof StickerInventoryActions.totalCopies === "function"
+        ? StickerInventoryActions.totalCopies({ albumOwned, collectionOwned, duplicates: duplicateCount })
+        : Number(albumOwned) + Number(collectionOwned) + duplicateCount;
       const actions = document.createElement("div");
       actions.className = "sticker__actions";
       actions.setAttribute("role", "group");

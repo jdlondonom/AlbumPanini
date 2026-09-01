@@ -48,7 +48,9 @@ test("reservar una repetida cambia su ubicación pero conserva el total de copia
 
 test("la interfaz usa el control fijo y carga su lógica antes de crear las láminas", () => {
   const html = fs.readFileSync(path.join(__dirname, "..", "panini-mundial-2026.html"), "utf8");
-  assert.ok(html.indexOf("/assets/sticker-inventory-actions.js") < html.indexOf("function createSticker"));
+  assert.ok(html.indexOf("/assets/sticker-inventory-actions.js?v=2") < html.indexOf("function createSticker"));
+  assert.match(html, /typeof StickerInventoryActions\.totalCopies === "function"/);
+  assert.match(html, /Number\(albumOwned\) \+ Number\(collectionOwned\) \+ duplicateCount/);
   assert.match(html, /className = "sticker__actions"/);
   assert.match(html, /performStickerInventoryAction\(item, "primary"\)/);
   assert.match(html, /performStickerInventoryAction\(item, "subtract"\)/);
